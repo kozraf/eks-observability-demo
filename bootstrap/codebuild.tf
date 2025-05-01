@@ -1,3 +1,8 @@
+variable "github_repo_url" {}
+variable "region" {
+  default = "us-east-1"
+}
+
 resource "aws_iam_role" "codebuild_role" {
   name = "codebuild-eks-observability-role"
 
@@ -30,6 +35,23 @@ resource "aws_codebuild_project" "eks_monitoring" {
     type      = "GITHUB"
     location  = var.github_repo_url
     buildspec = "terraform/buildspec.yml"
+    git_clone_depth = 1
+
+    git_submodules_config {
+      fetch_submodules = false
+    }
+  }
+
+  triggers {
+    webhook = true
+    filter_groups = [
+      [
+        {
+          type    = "EVENT"
+          pattern = "PUSH"
+        }
+      ]
+    ]
   }
 
   environment {
@@ -37,6 +59,7 @@ resource "aws_codebuild_project" "eks_monitoring" {
     image                       = "aws/codebuild/standard:7.0"
     type                        = "LINUX_CONTAINER"
     privileged_mode             = true
+
     environment_variable {
       name  = "AWS_REGION"
       value = var.region
@@ -46,9 +69,4 @@ resource "aws_codebuild_project" "eks_monitoring" {
   artifacts {
     type = "NO_ARTIFACTS"
   }
-}
-
-variable "github_repo_url" {}
-variable "region" {
-  default = "us-east-1"
 }
