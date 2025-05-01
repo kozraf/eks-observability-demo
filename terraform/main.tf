@@ -8,12 +8,25 @@ data "aws_vpc" "default" {
 }
 
 # Automatically get public subnets in that VPC
-data "aws_subnets" "default" {
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_subnets" "valid" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+
+  filter {
+    name   = "availability-zone"
+    values = [
+      for az in data.aws_availability_zones.available.names :
+      az if az != "us-east-1e"
+    ]
+  }
 }
+
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
