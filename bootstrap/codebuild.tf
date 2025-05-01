@@ -1,12 +1,3 @@
-variable "github_repo_url" {
-  description = "GitHub repo URL used for CodeBuild source"
-}
-
-variable "region" {
-  description = "AWS region"
-  default     = "us-east-1"
-}
-
 # IAM Role for CodeBuild
 resource "aws_iam_role" "codebuild_role" {
   name = "codebuild-eks-observability-role"
