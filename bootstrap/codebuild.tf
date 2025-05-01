@@ -12,9 +12,7 @@ resource "aws_codebuild_project" "eks_monitoring" {
     git_submodules_config {
       fetch_submodules = false
     }
-    git_config {
-      fetch_submodules = false
-    }
+
     report_build_status = true
     webhook             = true
   }
