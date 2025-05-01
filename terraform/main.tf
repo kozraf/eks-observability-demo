@@ -2,16 +2,17 @@ provider "aws" {
   region = var.region
 }
 
-# Automatically find default VPC
+# Get default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Automatically get public subnets in that VPC
+# Get availability zones (exclude us-east-1e)
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# Filter only usable subnets (exclude us-east-1e)
 data "aws_subnets" "valid" {
   filter {
     name   = "vpc-id"
@@ -27,13 +28,13 @@ data "aws_subnets" "valid" {
   }
 }
 
-
+# EKS module
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   cluster_name    = var.cluster_name
-  cluster_version = "1.28"
+  cluster_version = "1.30"
   vpc_id          = data.aws_vpc.default.id
-  subnet_ids      = data.aws_subnets.default.ids
+  subnet_ids      = data.aws_subnets.valid.ids
   enable_irsa     = true
 
   eks_managed_node_groups = {
@@ -43,5 +44,9 @@ module "eks" {
       min_size        = 1
       instance_types  = ["t3.small"]
     }
+  }
+
+  tags = {
+    env = "demo"
   }
 }
