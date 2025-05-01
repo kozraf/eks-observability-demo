@@ -2,12 +2,17 @@ version: 0.2
 
 phases:
   install:
-    runtime-versions:
-      terraform: 1.5
-      kubectl: 1.28
     commands:
+      - echo Installing Terraform 1.5.7...
+      - curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
+      - unzip terraform.zip && mv terraform /usr/local/bin/ && terraform -version
+
+      - echo Installing kubectl 1.28...
+      - curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl
+      - chmod +x kubectl && mv kubectl /usr/local/bin/ && kubectl version --client
+
       - echo Installing Helm...
-      - curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
   pre_build:
     commands:
@@ -19,6 +24,7 @@ phases:
       - echo "Applying Terraform"
       - terraform -chdir=terraform apply -auto-approve
       - echo "Updating kubeconfig"
-      - aws eks update-kubeconfig --region $AWS_REGION --name my-eks-cluster
+      - aws eks --region $AWS_REGION update-kubeconfig --name my-eks-cluster
       - chmod +x ./scripts/deploy.sh
       - ./scripts/deploy.sh
+
