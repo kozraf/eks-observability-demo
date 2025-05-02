@@ -98,14 +98,25 @@ resource "aws_codebuild_project" "eks_pipeline" {
   }
 
   environment {
-    image           = "aws/codebuild/standard:7.0"
-    type            = "LINUX_CONTAINER"
-    compute_type    = "BUILD_GENERAL1_SMALL"
-    privileged_mode = true
+  image           = "aws/codebuild/standard:7.0"
+  type            = "LINUX_CONTAINER"
+  compute_type    = "BUILD_GENERAL1_SMALL"
+  privileged_mode = true
 
-    environment_variable { name = "AWS_REGION"      value = var.region }
-    environment_variable { name = "TF_STATE_BUCKET" value = aws_s3_bucket.state.bucket }
-    environment_variable { name = "TF_LOCK_TABLE"   value = aws_dynamodb_table.lock.name }
+    environment_variable {
+      name  = "AWS_REGION"
+      value = var.region
+    }
+
+    environment_variable {
+      name  = "TF_STATE_BUCKET"
+      value = aws_s3_bucket.state.bucket
+    }
+
+    environment_variable {
+      name  = "TF_LOCK_TABLE"
+      value = aws_dynamodb_table.lock.name
+    }
   }
 
   artifacts { type = "NO_ARTIFACTS" }
