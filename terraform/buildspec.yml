@@ -24,6 +24,7 @@ phases:
       - echo "Applying Terraform"
       - terraform -chdir=terraform apply -auto-approve
       - echo "Updating kubeconfig"
-      - aws eks --region $AWS_REGION update-kubeconfig --name my-eks-cluster
+      - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
+      - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
       - chmod +x ./scripts/deploy.sh
       - ./scripts/deploy.sh
