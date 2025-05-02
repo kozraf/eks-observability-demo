@@ -14,17 +14,16 @@ phases:
       - echo Installing Helm...
       - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-pre_build:
-  commands:
-    - echo "Initializing Terraform with remote backend"
-    - |
-      terraform -chdir=terraform init \
-        -backend-config="bucket=$TF_STATE_BUCKET" \
-        -backend-config="key=eks-observability/eks.tfstate" \
-        -backend-config="region=$AWS_REGION" \
-        -backend-config="dynamodb_table=$TF_LOCK_TABLE" \
-        -backend-config="encrypt=true"
-
+  pre_build:
+    commands:
+      - echo "Initializing Terraform with remote backend"
+      - |
+        terraform -chdir=terraform init \
+          -backend-config="bucket=$TF_STATE_BUCKET" \
+          -backend-config="key=eks-observability/eks.tfstate" \
+          -backend-config="region=$AWS_REGION" \
+          -backend-config="dynamodb_table=$TF_LOCK_TABLE" \
+          -backend-config="encrypt=true"
 
   build:
     commands:
@@ -33,7 +32,7 @@ pre_build:
 
       - echo "Updating kubeconfig"
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
-      - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
+      - aws eks --region "$AWS_REGION" update-kubeconfig --name "$CLUSTER_NAME"
 
       - echo "Waiting 60 seconds for API..."
       - sleep 60
