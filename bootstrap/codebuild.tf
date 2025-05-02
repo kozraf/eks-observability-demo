@@ -40,7 +40,7 @@ resource "aws_iam_role_policy_attachment" "admin_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# —— Permit the role to read only the PAT secret ——
+# —— Allow the role to read the PAT secret only ——
 resource "aws_iam_role_policy" "read_pat_secret" {
   name = "read-github-pat"
   role = aws_iam_role.codebuild_role.id
@@ -62,21 +62,19 @@ resource "aws_codebuild_project" "eks_monitoring" {
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 30
 
-source {
-  type     = "GITHUB"
-  location = var.github_repo_url
+  source {
+    type     = "GITHUB"
+    location = var.github_repo_url
 
-  auth {
-    # Tell CodeBuild to use the PAT you registered
-    type     = "PERSONAL_ACCESS_TOKEN"
-    resource = aws_codebuild_source_credential.github_pat.arn
+    auth {
+      type     = "PERSONAL_ACCESS_TOKEN"                 # ← VALID type
+      resource = aws_codebuild_source_credential.github_pat.arn
+    }
+
+    buildspec           = "terraform/buildspec.yml"
+    git_clone_depth     = 1
+    report_build_status = true
   }
-
-  buildspec           = "terraform/buildspec.yml"
-  git_clone_depth     = 1
-  report_build_status = true
-}
-
 
   environment {
     image           = "aws/codebuild/standard:7.0"
@@ -102,7 +100,7 @@ source {
   }
 }
 
-# —— Webhook: trigger on any push ——
+# —— Webhook: build on any push ——
 resource "aws_codebuild_webhook" "eks_webhook" {
   project_name = aws_codebuild_project.eks_monitoring.name
 
