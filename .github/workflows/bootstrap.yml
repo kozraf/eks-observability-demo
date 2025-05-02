@@ -7,28 +7,45 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
-  deploy-codebuild:
-    name: Provision CodeBuild via Terraform
+  bootstrap:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 1. Checkout repo
+      - uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      # 2. Configure AWS creds (supplied as repo secrets)
+      - uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region:            ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      # 3. Install Terraform
+      - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.7
+          terraform_version: 1.6.6
 
-      - name: Terraform Init & Apply (bootstrap)
+      # 4. Upsert (create or update) PAT secret in this AWS account
+      - name: Upsert GitHub PAT secret
+        env:
+          PAT_VALUE: ${{ secrets.GITHUB_PAT }}
+        run: |
+          set -e
+          SECRET_NAME="github/pat/eks-observability-demo"
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --secret-string "$PAT_VALUE" \
+            || \
+          aws secretsmanager create-secret \
+            --name "$SECRET_NAME" \
+            --secret-string "$PAT_VALUE"
+
+      # 5. Terraform apply bootstrap
+      - name: Terraform Init & Apply
         working-directory: bootstrap
         run: |
           terraform init
-          terraform apply -auto-approve -var="github_repo_url=https://github.com/${{ github.repository }}"
+          terraform apply -auto-approve \
+            -var github_repo_url=https://github.com/${{ github.repository }} \
+            -var github_pat_secret_name=github/pat/eks-observability-demo
