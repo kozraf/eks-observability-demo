@@ -21,14 +21,19 @@ phases:
       - terraform -chdir=bootstrap apply -auto-approve
 
       - echo "Fetching CodeBuild IAM Role ARN..."
-      - CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
-      - echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
+      - |
+        CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
+        echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
+        echo "export CODEBUILD_ROLE_ARN=$CODEBUILD_ROLE_ARN" >> ~/.bashrc
 
       - echo "Initializing EKS Terraform module..."
       - terraform -chdir=terraform init
 
   build:
     commands:
+      - echo "Sourcing role ARN..."
+      - source ~/.bashrc
+
       - echo "Applying Terraform for EKS and monitoring..."
       - terraform -chdir=terraform apply -auto-approve -var codebuild_role_arn="$CODEBUILD_ROLE_ARN"
 
