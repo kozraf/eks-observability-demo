@@ -11,25 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
-      - uses: actions/checkout@v3
+      # 1. Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # 2. Configure AWS creds (supplied as repo secrets)
-      - uses: aws-actions/configure-aws-credentials@v2
+      # 2. Configure short‑lived AWS credentials (stored as repo secrets)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      # 3. Install Terraform
-      - uses: hashicorp/setup-terraform@v3
+      # 3. Install Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # 4. Upsert (create or update) PAT secret in this AWS account
-      - name: Upsert GitHub PAT secret
+      # 4. Create or update the GitHub PAT in AWS Secrets Manager
+      - name: Upsert GitHub PAT secret in Secrets Manager
         env:
-          PAT_VALUE: ${{ secrets.GITHUB_PAT }}
+          PAT_VALUE: ${{ secrets.GH_PAT }}              # <-- GitHub secret name
         run: |
           set -e
           SECRET_NAME="github/pat/eks-observability-demo"
@@ -41,8 +44,8 @@ jobs:
             --name "$SECRET_NAME" \
             --secret-string "$PAT_VALUE"
 
-      # 5. Terraform apply bootstrap
-      - name: Terraform Init & Apply
+      # 5. Run Terraform to (re)create CodeBuild + IAM using the PAT
+      - name: Terraform init & apply (bootstrap)
         working-directory: bootstrap
         run: |
           terraform init
