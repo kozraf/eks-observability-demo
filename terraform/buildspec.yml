@@ -26,5 +26,8 @@ phases:
       - echo "Updating kubeconfig"
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
       - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
+      # ─ Wait a minute for the API and nodes to be ready
+      - echo "Waiting 60 seconds for EKS API to become reachable..."
+      - sleep 60
       - chmod +x ./scripts/deploy.sh
       - ./scripts/deploy.sh
