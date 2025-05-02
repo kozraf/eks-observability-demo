@@ -40,7 +40,7 @@ resource "aws_iam_role_policy_attachment" "admin_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# —— Allow the role to read the PAT secret only ——
+# —— Allow the role to read the PAT secret ——
 resource "aws_iam_role_policy" "read_pat_secret" {
   name = "read-github-pat"
   role = aws_iam_role.codebuild_role.id
@@ -66,11 +66,7 @@ resource "aws_codebuild_project" "eks_monitoring" {
     type     = "GITHUB"
     location = var.github_repo_url
 
-    auth {
-      type     = "PERSONAL_ACCESS_TOKEN"                 # ← VALID type
-      resource = aws_codebuild_source_credential.github_pat.arn
-    }
-
+    # no auth{} block — CodeBuild will automatically use the only PAT credential
     buildspec           = "terraform/buildspec.yml"
     git_clone_depth     = 1
     report_build_status = true
