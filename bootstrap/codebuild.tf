@@ -62,20 +62,21 @@ resource "aws_codebuild_project" "eks_monitoring" {
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 30
 
-  source {
-    type     = "GITHUB"
-    location = var.github_repo_url
+source {
+  type     = "GITHUB"
+  location = var.github_repo_url
 
-    # Tell CodeBuild to use the registered PAT credential
-    auth {
-      type     = "CODEBUILD"
-      resource = aws_codebuild_source_credential.github_pat.arn
-    }
-
-    buildspec           = "terraform/buildspec.yml"
-    git_clone_depth     = 1
-    report_build_status = true
+  auth {
+    # Tell CodeBuild to use the PAT you registered
+    type     = "PERSONAL_ACCESS_TOKEN"
+    resource = aws_codebuild_source_credential.github_pat.arn
   }
+
+  buildspec           = "terraform/buildspec.yml"
+  git_clone_depth     = 1
+  report_build_status = true
+}
+
 
   environment {
     image           = "aws/codebuild/standard:7.0"
