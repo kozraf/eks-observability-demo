@@ -18,26 +18,25 @@ phases:
     commands:
       - echo "Initializing bootstrap Terraform module..."
       - terraform -chdir=bootstrap init
-      - terraform -chdir=bootstrap apply -auto-approve
+
+      - echo "Applying bootstrap to create IAM and CodeBuild role..."
+      - terraform -chdir=bootstrap apply -auto-approve \
+          -var github_repo_url="https://github.com/kozraf/eks-observability-demo" \
+          -var github_pat_secret_name="github/pat/eks-observability-demo"
 
       - echo "Fetching CodeBuild IAM Role ARN..."
-      - |
-        CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
-        echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
-        echo "export CODEBUILD_ROLE_ARN=$CODEBUILD_ROLE_ARN" >> ~/.bashrc
+      - CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
+      - echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
 
-      - echo "Initializing EKS Terraform module..."
+      - echo "Initializing Terraform for EKS cluster..."
       - terraform -chdir=terraform init
 
   build:
     commands:
-      - echo "Sourcing role ARN..."
-      - source ~/.bashrc
-
-      - echo "Applying Terraform for EKS and monitoring..."
+      - echo "Deploying EKS + node groups..."
       - terraform -chdir=terraform apply -auto-approve -var codebuild_role_arn="$CODEBUILD_ROLE_ARN"
 
-      - echo "Updating kubeconfig for cluster access"
+      - echo "Updating kubeconfig for kubectl access..."
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
       - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
 
