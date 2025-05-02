@@ -43,9 +43,9 @@ module "eks" {
 
   enable_irsa = true
 
-  # ★ Expose the API publicly so CodeBuild can reach it
-  cluster_endpoint_public_access = true
-  public_access_cidrs            = ["0.0.0.0/0"]
+  # ★ Expose the control‑plane publicly so CodeBuild can reach it
+  cluster_endpoint_public_access        = true
+  cluster_endpoint_public_access_cidrs  = ["0.0.0.0/0"]
 
   eks_managed_node_groups = {
     default = {
