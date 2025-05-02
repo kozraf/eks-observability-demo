@@ -88,19 +88,20 @@ provider "kubernetes" {
 }
 
 ################ aws‑auth ConfigMap ################
-module "aws_auth" {
-  source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
-  version = "20.36.0"
 
-  providers = { kubernetes = kubernetes.eks }
+#module "aws_auth" {
+#  source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
+#  version = "20.36.0"
 
-  manage_aws_auth_configmap = true
+#  providers = { kubernetes = kubernetes.eks }
 
-  aws_auth_roles = [
-    {
-      rolearn  = aws_iam_role.eks_admin.arn
-      username = "eks-admin"
-      groups   = ["system:masters"]
-    }
-  ]
-}
+#  manage_aws_auth_configmap = true
+
+#  aws_auth_roles = [
+#    {
+#      rolearn  = aws_iam_role.eks_admin.arn
+#      username = "eks-admin"
+#      groups   = ["system:masters"]
+#    }
+#  ]
+#}
