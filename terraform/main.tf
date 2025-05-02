@@ -2,61 +2,58 @@ provider "aws" {
   region = var.region
 }
 
-# ─────────────────────────────────────────
-# Default VPC and usable subnets
-# ─────────────────────────────────────────
-data "aws_vpc" "default" {
-  default = true
-}
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.0"
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
+  name = "eks-vpc"
+  cidr = "10.0.0.0/16"
 
-data "aws_subnets" "valid" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
+  azs             = ["${var.region}a", "${var.region}b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
-  filter {
-    name   = "availability-zone"
-    values = [
-      for az in data.aws_availability_zones.available.names :
-      az if az != "us-east-1e"
-    ]
+  enable_nat_gateway = true
+  single_nat_gateway = true
+
+  tags = {
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb"           = "1"
   }
 }
 
-# ─────────────────────────────────────────
-# EKS cluster
-# ─────────────────────────────────────────
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.36.0"
+  version = "~> 20.0"
 
   cluster_name    = var.cluster_name
   cluster_version = "1.30"
-
-  vpc_id     = data.aws_vpc.default.id
-  subnet_ids = data.aws_subnets.valid.ids
+  subnet_ids      = module.vpc.private_subnets
+  vpc_id          = module.vpc.vpc_id
 
   enable_irsa = true
 
-  # ★ Expose the control‑plane publicly so CodeBuild can reach it
-  cluster_endpoint_public_access        = true
-  cluster_endpoint_public_access_cidrs  = ["0.0.0.0/0"]
-
   eks_managed_node_groups = {
     default = {
+      instance_types = ["t3.small"]
       desired_size   = 2
       max_size       = 3
       min_size       = 1
-      instance_types = ["t3.small"]
     }
   }
 
+  # 👇 This block maps the CodeBuild role into the cluster's RBAC
+  manage_aws_auth_configmap = true
+
+  aws_auth_roles = [
+    {
+      rolearn = var.codebuild_role_arn
+      username = "codebuild"
+      groups   = ["system:masters"]
+    }
+  ]
+
   tags = {
-    env = "demo"
+    Environment = "demo"
   }
 }

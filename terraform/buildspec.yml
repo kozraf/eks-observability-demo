@@ -16,18 +16,29 @@ phases:
 
   pre_build:
     commands:
-      - echo "Initializing Terraform"
+      - echo "Initializing bootstrap Terraform module..."
+      - terraform -chdir=bootstrap init
+      - terraform -chdir=bootstrap apply -auto-approve
+
+      - echo "Fetching CodeBuild IAM Role ARN..."
+      - CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
+      - echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
+
+      - echo "Initializing EKS Terraform module..."
       - terraform -chdir=terraform init
 
   build:
     commands:
-      - echo "Applying Terraform"
-      - terraform -chdir=terraform apply -auto-approve
-      - echo "Updating kubeconfig"
+      - echo "Applying Terraform for EKS and monitoring..."
+      - terraform -chdir=terraform apply -auto-approve -var codebuild_role_arn="$CODEBUILD_ROLE_ARN"
+
+      - echo "Updating kubeconfig for cluster access"
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
       - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
-      # ─ Wait a minute for the API and nodes to be ready
+
       - echo "Waiting 60 seconds for EKS API to become reachable..."
       - sleep 60
+
       - chmod +x ./scripts/deploy.sh
       - ./scripts/deploy.sh
+
