@@ -1,29 +1,30 @@
 ###############################################################################
-#  Bootstrap layer – creates:
-#  • remote‑state S3 bucket (random name)
-#  • DynamoDB lock table
-#  • CodeBuild IAM role + project
+#  bootstrap_codebuild.tf  – COMPLETE, FIXED FILE
 ###############################################################################
-
 terraform {
   required_version = ">= 1.4"
+
   required_providers {
-    aws = { source = "hashicorp/aws"  version = ">= 5.79" }
-    random = { source = "hashicorp/random" version = ">= 3.5" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.79"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.5"
+    }
   }
 }
 
 provider "aws" { region = var.region }
 
-data "aws_caller_identity" "current" {}
-
 ############################
-# Random suffix to keep bucket names unique
+# Random suffix
 ############################
 resource "random_pet" "suffix" {}
 
 ############################
-# Remote‑state bucket
+# Remote‑state S3 bucket
 ############################
 resource "aws_s3_bucket" "state" {
   bucket        = "tf-state-${random_pet.suffix.id}"
@@ -99,10 +100,9 @@ resource "aws_codebuild_project" "eks_pipeline" {
     compute_type    = "BUILD_GENERAL1_SMALL"
     privileged_mode = true
 
-    environment_variable { name = "AWS_REGION"        value = var.region }
-    # ← pass bucket & table names to the build
-    environment_variable { name = "TF_STATE_BUCKET"   value = aws_s3_bucket.state.bucket }
-    environment_variable { name = "TF_LOCK_TABLE"     value = aws_dynamodb_table.lock.name }
+    environment_variable { name = "AWS_REGION"      value = var.region }
+    environment_variable { name = "TF_STATE_BUCKET" value = aws_s3_bucket.state.bucket }
+    environment_variable { name = "TF_LOCK_TABLE"   value = aws_dynamodb_table.lock.name }
   }
 
   artifacts { type = "NO_ARTIFACTS" }
@@ -116,7 +116,7 @@ resource "aws_codebuild_project" "eks_pipeline" {
 }
 
 ############################
-# Outputs for debugging (optional)
+# Outputs (optional)
 ############################
 output "state_bucket" { value = aws_s3_bucket.state.bucket }
 output "lock_table"   { value = aws_dynamodb_table.lock.name }
