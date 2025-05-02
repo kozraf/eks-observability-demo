@@ -16,19 +16,24 @@ phases:
 
   pre_build:
     commands:
-      - echo "Initializing Terraform for EKS cluster..."
-      - terraform -chdir=terraform init
+      - echo "Initializing Terraform with remote backend"
+      - terraform -chdir=terraform init \
+          -backend-config="bucket=$TF_STATE_BUCKET" \
+          -backend-config="key=eks-observability/eks.tfstate" \
+          -backend-config="region=$AWS_REGION" \
+          -backend-config="dynamodb_table=$TF_LOCK_TABLE" \
+          -backend-config="encrypt=true"
 
   build:
     commands:
-      - echo "Deploying EKS + node groups..."
+      - echo "Applying Terraform (EKS + monitoring)..."
       - terraform -chdir=terraform apply -auto-approve
 
-      - echo "Updating kubeconfig for kubectl access..."
+      - echo "Updating kubeconfig"
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
       - aws eks --region $AWS_REGION update-kubeconfig --name "$CLUSTER_NAME"
 
-      - echo "Waiting 60 seconds for EKS API to become reachable..."
+      - echo "Waiting 60 seconds for API..."
       - sleep 60
 
       - chmod +x ./scripts/deploy.sh

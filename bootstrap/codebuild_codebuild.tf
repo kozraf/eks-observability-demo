@@ -1,35 +1,71 @@
-############################################
-#  Bootstrap: IAM + CodeBuild (GitHub PAT) #
-############################################
+###############################################################################
+#  Bootstrap layer – creates:
+#  • remote‑state S3 bucket (random name)
+#  • DynamoDB lock table
+#  • CodeBuild IAM role + project
+###############################################################################
 
-# —— Look up current AWS account ID ——
+terraform {
+  required_version = ">= 1.4"
+  required_providers {
+    aws = { source = "hashicorp/aws"  version = ">= 5.79" }
+    random = { source = "hashicorp/random" version = ">= 3.5" }
+  }
+}
+
+provider "aws" { region = var.region }
+
 data "aws_caller_identity" "current" {}
 
-# —— Secret lookup by NAME ——
-data "aws_secretsmanager_secret" "github_pat" {
-  name = var.github_pat_secret_name
+############################
+# Random suffix to keep bucket names unique
+############################
+resource "random_pet" "suffix" {}
+
+############################
+# Remote‑state bucket
+############################
+resource "aws_s3_bucket" "state" {
+  bucket        = "tf-state-${random_pet.suffix.id}"
+  force_destroy = true
+
+  versioning { enabled = true }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+
+  tags = { Purpose = "terraform-state" }
 }
 
-data "aws_secretsmanager_secret_version" "github_pat" {
-  secret_id = data.aws_secretsmanager_secret.github_pat.id
+############################
+# DynamoDB lock table
+############################
+resource "aws_dynamodb_table" "lock" {
+  name         = "tf-lock-${random_pet.suffix.id}"
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = "LockID"
+  attribute { name = "LockID"  type = "S" }
+
+  tags = { Purpose = "terraform-lock" }
 }
 
-# —— Source Credential: GitHub PAT ——
-resource "aws_codebuild_source_credential" "github_pat" {
-  auth_type   = "PERSONAL_ACCESS_TOKEN"
-  server_type = "GITHUB"
-  token       = data.aws_secretsmanager_secret_version.github_pat.secret_string
-}
-
-# —— CodeBuild service role ——
+############################
+# CodeBuild service role
+############################
 resource "aws_iam_role" "codebuild_role" {
   name = "codebuild-eks-observability-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "codebuild.amazonaws.com" }
+      Effect    = "Allow",
+      Principal = { Service = "codebuild.amazonaws.com" },
       Action    = "sts:AssumeRole"
     }]
   })
@@ -40,35 +76,20 @@ resource "aws_iam_role_policy_attachment" "admin_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# —— Allow the role to read the PAT secret ——
-resource "aws_iam_role_policy" "read_pat_secret" {
-  name = "read-github-pat"
-  role = aws_iam_role.codebuild_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.github_pat_secret_name}*"
-    }]
-  })
-}
-
-# —— CodeBuild project ——
-resource "aws_codebuild_project" "eks_monitoring" {
-  name          = "eks-observability-demo"
-  description   = "Builds EKS + monitoring stack"
-  service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 30
+############################
+# CodeBuild project
+############################
+resource "aws_codebuild_project" "eks_pipeline" {
+  name         = "eks-observability-demo"
+  description  = "Builds VPC + EKS + monitoring stack"
+  service_role = aws_iam_role.codebuild_role.arn
+  build_timeout = 60
 
   source {
-    type     = "GITHUB"
-    location = var.github_repo_url
-
-    # no auth{} block — CodeBuild will automatically use the only PAT credential
-    buildspec           = "terraform/buildspec.yml"
-    git_clone_depth     = 1
+    type            = "GITHUB"
+    location        = var.github_repo_url
+    git_clone_depth = 1
+    buildspec       = "terraform/buildspec.yml"
     report_build_status = true
   }
 
@@ -78,15 +99,13 @@ resource "aws_codebuild_project" "eks_monitoring" {
     compute_type    = "BUILD_GENERAL1_SMALL"
     privileged_mode = true
 
-    environment_variable {
-      name  = "AWS_REGION"
-      value = var.region
-    }
+    environment_variable { name = "AWS_REGION"        value = var.region }
+    # ← pass bucket & table names to the build
+    environment_variable { name = "TF_STATE_BUCKET"   value = aws_s3_bucket.state.bucket }
+    environment_variable { name = "TF_LOCK_TABLE"     value = aws_dynamodb_table.lock.name }
   }
 
-  artifacts {
-    type = "NO_ARTIFACTS"
-  }
+  artifacts { type = "NO_ARTIFACTS" }
 
   logs_config {
     cloudwatch_logs {
@@ -96,14 +115,8 @@ resource "aws_codebuild_project" "eks_monitoring" {
   }
 }
 
-# —— Webhook: build on any push ——
-resource "aws_codebuild_webhook" "eks_webhook" {
-  project_name = aws_codebuild_project.eks_monitoring.name
-
-  filter_group {
-    filter {
-      type    = "EVENT"
-      pattern = "PUSH"
-    }
-  }
-}
+############################
+# Outputs for debugging (optional)
+############################
+output "state_bucket" { value = aws_s3_bucket.state.bucket }
+output "lock_table"   { value = aws_dynamodb_table.lock.name }
