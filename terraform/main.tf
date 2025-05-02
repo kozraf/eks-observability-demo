@@ -1,11 +1,3 @@
-###############################################################################
-# main.tf – full file
-# * Creates a VPC
-# * Creates an “eks‑admin” IAM role (AdministratorAccess)
-# * Deploys the EKS cluster + managed node group
-# * Maps the eks‑admin role into the aws‑auth ConfigMap
-###############################################################################
-
 terraform {
   required_version = ">= 1.4"
   required_providers {
@@ -16,23 +8,22 @@ terraform {
   }
 }
 
-####################
+############################
 # Provider
-####################
+############################
 provider "aws" {
   region = var.region
 }
 
-####################
+############################
 # VPC
-####################
+############################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
 
-  name = "eks-vpc"
-  cidr = "10.0.0.0/16"
-
+  name            = "eks-vpc"
+  cidr            = "10.0.0.0/16"
   azs             = ["${var.region}a", "${var.region}b"]
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
@@ -46,18 +37,18 @@ module "vpc" {
   }
 }
 
-####################
+############################
 # IAM role for cluster admins
-####################
+############################
 resource "aws_iam_role" "eks_admin" {
   name = "eks-admin-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "ec2.amazonaws.com" },
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -67,9 +58,9 @@ resource "aws_iam_role_policy_attachment" "eks_admin_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-####################
-# EKS cluster + node group
-####################
+############################
+# EKS cluster + node group
+############################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.36.0"
@@ -96,26 +87,20 @@ module "eks" {
   }
 }
 
-####################
-# aws‑auth ConfigMap (new sub‑module API in v20.x)
-####################
-###############################################################################
-# aws‑auth ConfigMap
-###############################################################################
+############################
+# aws‑auth ConfigMap (sub‑module)
+############################
 module "aws_auth" {
   source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
   version = "20.36.0"
 
   depends_on = [module.eks]
 
-  # create the ConfigMap
-  create_aws_auth_configmap = true
+  # *this* is the only flag you need
+  manage_aws_auth_configmap = true
 
-  # v20.x expects the cluster *ID* (ARN), not the name
-  eks_cluster_id = module.eks.cluster_id
-
-  # role mappings
-  iam_role_mappings = [
+  # still uses the v19‑style names
+  aws_auth_roles = [
     {
       rolearn  = aws_iam_role.eks_admin.arn
       username = "eks-admin"
@@ -123,4 +108,3 @@ module "aws_auth" {
     }
   ]
 }
-
