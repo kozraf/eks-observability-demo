@@ -1,17 +1,12 @@
 name: Terraform Plan
 
 on:
-  # Auto‑plan on every push that touches Terraform code
   push:
     paths:
       - "terraform/**"
-
-  # Auto‑plan for pull‑requests that touch Terraform code
   pull_request:
     paths:
       - "terraform/**"
-
-  # Allow manual plan from the Actions tab
   workflow_dispatch:
 
 env:
@@ -22,22 +17,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
       - uses: actions/checkout@v3
 
-      # 2. Configure AWS creds (short‑lived)
       - uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      # 3. Install Terraform
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # 4. Init, fmt‑check, validate
       - name: Terraform Init
         working-directory: terraform
         run: terraform init
@@ -48,7 +39,6 @@ jobs:
           terraform fmt -check
           terraform validate
 
-      # 5. Create the plan file
       - name: Terraform Plan
         id: plan
         working-directory: terraform
@@ -56,13 +46,12 @@ jobs:
           terraform plan -out=tfplan
           terraform show -no-color tfplan > plan.txt
 
-      # 6. Upload plan artifact for apply job
+      # -------- FIX: pin to v4 --------
       - name: Upload plan artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan
           path: terraform/tfplan
 
-      # 7. Show plan in job summary
       - name: Add plan to summary
         run: cat terraform/plan.txt >> $GITHUB_STEP_SUMMARY
