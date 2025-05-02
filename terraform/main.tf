@@ -2,27 +2,6 @@ provider "aws" {
   region = var.region
 }
 
-resource "aws_iam_role" "eks_admin" {
-  name = "eks-admin-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      },
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_admin_attach" {
-  role       = aws_iam_role.eks_admin.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -43,9 +22,32 @@ module "vpc" {
   }
 }
 
+resource "aws_iam_role" "eks_admin" {
+  name = "eks-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_admin_attach" {
+  role       = aws_iam_role.eks_admin.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+########################
+# EKS Cluster & Nodes
+########################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "20.36.0"
 
   cluster_name    = var.cluster_name
   cluster_version = "1.30"
@@ -63,8 +65,21 @@ module "eks" {
     }
   }
 
-  # 👇 This block maps the CodeBuild role into the cluster's RBAC
-    manage_aws_auth_configmap = true
+  tags = {
+    Environment = "demo"
+  }
+}
+
+########################
+# aws-auth Submodule
+########################
+module "aws_auth" {
+  source = "terraform-aws-modules/eks/aws//modules/aws-auth"
+  version = "20.36.0"
+
+  depends_on = [module.eks]
+
+  manage_aws_auth_configmap = true
 
   aws_auth_roles = [
     {
@@ -74,8 +89,5 @@ module "eks" {
     }
   ]
 
-
-  tags = {
-    Environment = "demo"
-  }
+  eks_cluster_name = module.eks.cluster_name
 }
