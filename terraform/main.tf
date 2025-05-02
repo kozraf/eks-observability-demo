@@ -2,8 +2,12 @@ provider "aws" {
   region = var.region
 }
 
-# ────────── Default VPC & subnets (unchanged) ──────────
-data "aws_vpc" "default" { default = true }
+# ─────────────────────────────────────────
+# Default VPC and usable subnets
+# ─────────────────────────────────────────
+data "aws_vpc" "default" {
+  default = true
+}
 
 data "aws_availability_zones" "available" {
   state = "available"
@@ -14,6 +18,7 @@ data "aws_subnets" "valid" {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+
   filter {
     name   = "availability-zone"
     values = [
@@ -23,19 +28,22 @@ data "aws_subnets" "valid" {
   }
 }
 
-# ────────── EKS module ──────────
+# ─────────────────────────────────────────
+# EKS cluster
+# ─────────────────────────────────────────
 module "eks" {
-  source          = "terraform-aws-modules/eks/aws"
-  version         = "20.36.0"
+  source  = "terraform-aws-modules/eks/aws"
+  version = "20.36.0"
 
   cluster_name    = var.cluster_name
   cluster_version = "1.30"
 
   vpc_id     = data.aws_vpc.default.id
   subnet_ids = data.aws_subnets.valid.ids
+
   enable_irsa = true
 
-  # ★ NEW: make the control plane public so CodeBuild can reach it
+  # ★ Expose the API publicly so CodeBuild can reach it
   cluster_endpoint_public_access = true
   public_access_cidrs            = ["0.0.0.0/0"]
 
@@ -51,8 +59,4 @@ module "eks" {
   tags = {
     env = "demo"
   }
-}
-
-output "cluster_name" {
-  value = module.eks.cluster_name
 }
