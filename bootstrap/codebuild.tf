@@ -2,10 +2,10 @@
 #  Bootstrap: IAM + CodeBuild (GitHub PAT) #
 ############################################
 
-# —— Look up current AWS account ID (for IAM ARN) ——
+# —— Look up current AWS account ID ——
 data "aws_caller_identity" "current" {}
 
-# —— Secret lookup by NAME (never hard‑code ARN) ——
+# —— Secret lookup by NAME ——
 data "aws_secretsmanager_secret" "github_pat" {
   name = var.github_pat_secret_name
 }
@@ -27,40 +27,35 @@ resource "aws_iam_role" "codebuild_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      {
-        Effect    = "Allow",
-        Principal = { Service = "codebuild.amazonaws.com" },
-        Action    = "sts:AssumeRole"
-      }
-    ]
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "codebuild.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
   })
 }
 
-# Full admin for demo simplicity
 resource "aws_iam_role_policy_attachment" "admin_attach" {
   role       = aws_iam_role.codebuild_role.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# Least‑privilege right to read *only* the PAT secret
+# —— Permit the role to read just the PAT secret ——
 resource "aws_iam_role_policy" "read_pat_secret" {
   name = "read-github-pat"
   role = aws_iam_role.codebuild_role.id
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = ["secretsmanager:GetSecretValue"],
-        Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.github_pat_secret_name}*"
-      }
-    ]
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.github_pat_secret_name}*"
+    }]
   })
 }
 
-# —— Main CodeBuild project ——
+# —— CodeBuild project ——
 resource "aws_codebuild_project" "eks_monitoring" {
   name          = "eks-observability-demo"
   description   = "Builds EKS + monitoring stack"
@@ -105,11 +100,14 @@ resource "aws_codebuild_project" "eks_monitoring" {
   }
 }
 
-# —— Webhook: trigger on every push to any branch ——
+# —— Webhook: trigger on any push ——
 resource "aws_codebuild_webhook" "eks_webhook" {
   project_name = aws_codebuild_project.eks_monitoring.name
 
   filter_group {
-    filter { type = "EVENT"  pattern = "PUSH" }
+    filter {
+      type    = "EVENT"
+      pattern = "PUSH"
+    }
   }
 }
