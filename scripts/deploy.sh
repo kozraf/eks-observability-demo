@@ -9,8 +9,8 @@ helm repo add podinfo https://stefanprodan.github.io/podinfo
 helm repo update
 
 # Deploy Prometheus stack
-helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring --create-namespace
+#helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+#  --namespace monitoring --create-namespace
 
 # Deploy Kubecost
 helm upgrade --install kubecost kubecost/cost-analyzer \
@@ -18,5 +18,5 @@ helm upgrade --install kubecost kubecost/cost-analyzer \
   --set kubecostToken="demo"
 
 # Deploy sample pod (podinfo)
-helm upgrade --install podinfo podinfo/podinfo \
-  --namespace apps --create-namespace
+#helm upgrade --install podinfo podinfo/podinfo \
+#  --namespace apps --create-namespace
