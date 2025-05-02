@@ -39,3 +39,30 @@ jobs:
 
       # 4. Init, fmt‑check, validate
       - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Fmt & Validate
+        working-directory: terraform
+        run: |
+          terraform fmt -check
+          terraform validate
+
+      # 5. Create the plan file
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        run: |
+          terraform plan -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      # 6. Upload plan artifact for apply job
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: terraform/tfplan
+
+      # 7. Show plan in job summary
+      - name: Add plan to summary
+        run: cat terraform/plan.txt >> $GITHUB_STEP_SUMMARY
