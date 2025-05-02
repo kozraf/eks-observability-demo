@@ -99,16 +99,23 @@ module "eks" {
 ####################
 # aws‑auth ConfigMap (new sub‑module API in v20.x)
 ####################
+###############################################################################
+# aws‑auth ConfigMap
+###############################################################################
 module "aws_auth" {
   source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
   version = "20.36.0"
 
   depends_on = [module.eks]
 
+  # create the ConfigMap
   create_aws_auth_configmap = true
-  cluster_name              = module.eks.cluster_name
 
-  map_roles = [
+  # v20.x expects the cluster *ID* (ARN), not the name
+  eks_cluster_id = module.eks.cluster_id
+
+  # role mappings
+  iam_role_mappings = [
     {
       rolearn  = aws_iam_role.eks_admin.arn
       username = "eks-admin"
@@ -116,3 +123,4 @@ module "aws_auth" {
     }
   ]
 }
+
