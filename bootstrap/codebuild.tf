@@ -66,9 +66,10 @@ resource "aws_codebuild_project" "eks_monitoring" {
     type     = "GITHUB"
     location = var.github_repo_url
 
-    # <- Fix: tell CodeBuild to use whatever PAT is registered
+    # Tell CodeBuild to use the registered PAT credential
     auth {
-      type = "CODEBUILD"
+      type     = "CODEBUILD"
+      resource = aws_codebuild_source_credential.github_pat.arn
     }
 
     buildspec           = "terraform/buildspec.yml"
