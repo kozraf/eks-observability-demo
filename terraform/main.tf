@@ -2,6 +2,27 @@ provider "aws" {
   region = var.region
 }
 
+resource "aws_iam_role" "eks_admin" {
+  name = "eks-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_admin_attach" {
+  role       = aws_iam_role.eks_admin.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -43,15 +64,16 @@ module "eks" {
   }
 
   # 👇 This block maps the CodeBuild role into the cluster's RBAC
-  manage_aws_auth_configmap = true
+    manage_aws_auth_configmap = true
 
   aws_auth_roles = [
     {
-      rolearn = var.codebuild_role_arn
-      username = "codebuild"
+      rolearn  = aws_iam_role.eks_admin.arn
+      username = "eks-admin"
       groups   = ["system:masters"]
     }
   ]
+
 
   tags = {
     Environment = "demo"

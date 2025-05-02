@@ -16,29 +16,13 @@ phases:
 
   pre_build:
     commands:
-      - echo "Initializing bootstrap Terraform module..."
-      - terraform -chdir=bootstrap init
-
-      - echo "Applying bootstrap to create IAM and CodeBuild role..."
-      - |
-        terraform -chdir=bootstrap apply -auto-approve \
-          -var github_repo_url="https://github.com/kozraf/eks-observability-demo" \
-          -var github_pat_secret_name="github/pat/eks-observability-demo"
-
-      - echo "Fetching CodeBuild IAM Role ARN..."
-      - |
-        CODEBUILD_ROLE_ARN=$(terraform -chdir=bootstrap output -raw codebuild_role_arn)
-        echo "CodeBuild role ARN: $CODEBUILD_ROLE_ARN"
-        echo "export CODEBUILD_ROLE_ARN=$CODEBUILD_ROLE_ARN" >> ~/.bashrc
-
       - echo "Initializing Terraform for EKS cluster..."
       - terraform -chdir=terraform init
 
   build:
     commands:
-      - source ~/.bashrc
       - echo "Deploying EKS + node groups..."
-      - terraform -chdir=terraform apply -auto-approve -var codebuild_role_arn="$CODEBUILD_ROLE_ARN"
+      - terraform -chdir=terraform apply -auto-approve
 
       - echo "Updating kubeconfig for kubectl access..."
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
