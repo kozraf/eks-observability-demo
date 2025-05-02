@@ -87,6 +87,33 @@ module "eks" {
   }
 }
 
+###############################################################################
+# Providers that connect to the brand‑new cluster
+###############################################################################
+
+# 1. Get a short‑lived auth token for this cluster
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
+}
+
+# 2. Kubernetes provider (aliased “eks”) that the aws‑auth module will use
+provider "kubernetes" {
+  alias                  = "eks"
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.this.token
+}
+
+# 3. Helm provider (optional but handy for the deploy.sh step)
+provider "helm" {
+  alias                  = "eks"
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.this.token
+  }
+}
+
 ############################
 # aws‑auth ConfigMap (sub‑module)
 ############################
@@ -95,6 +122,10 @@ module "aws_auth" {
   version = "20.36.0"
 
   depends_on = [module.eks]
+
+  providers = {
+    kubernetes = kubernetes.eks   # <‑‑ use the alias defined above
+  }
 
   # *this* is the only flag you need
   manage_aws_auth_configmap = true
