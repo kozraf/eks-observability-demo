@@ -16,11 +16,9 @@ provider "aws" {
 }
 
 ###############################################################################
-# Common data & tags
+# Data sources & locals
 ###############################################################################
 data "aws_caller_identity" "current" {}
-
-data "aws_availability_zones" "available" {}
 
 locals {
   tags = {
@@ -28,7 +26,7 @@ locals {
     Terraform = "true"
   }
 
-  # Principal that should get full admin access in the EKS console / kubectl
+  # Use the supplied var if set, otherwise default to “user/cloud_user”
   admin_principal_arn = (
     var.admin_principal_arn != ""
       ? var.admin_principal_arn
@@ -37,7 +35,7 @@ locals {
 }
 
 ###############################################################################
-# Network – simple three‑AZ VPC
+# Network – quick three‑AZ VPC
 ###############################################################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -57,7 +55,7 @@ module "vpc" {
 }
 
 ###############################################################################
-# EKS – managed node group + access entries
+# EKS cluster + managed node group
 ###############################################################################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -66,19 +64,16 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
 
-  # Networking
   vpc_id                   = module.vpc.vpc_id
   subnet_ids               = module.vpc.private_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
-  # Default node‑group settings
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
     disk_size      = 20
     instance_types = ["t3.medium"]
   }
 
-  # One managed node‑group
   eks_managed_node_groups = {
     default = {
       min_size     = 2
@@ -87,9 +82,9 @@ module "eks" {
     }
   }
 
-  # Access entries
-  # ‑ The CodeBuild role is added automatically by the module as “cluster_creator”.
-  # ‑ We add cloud_user (or a supplied principal) as an additional admin.
+  ###########################################################################
+  # Access entries – this is all we need for cloud_user console & kubectl
+  ###########################################################################
   access_entries = {
     cloud_admin = {
       principal_arn = local.admin_principal_arn
@@ -101,19 +96,4 @@ module "eks" {
   tags = local.tags
 }
 
-resource "aws_eks_access_entry" "admin" {
-  cluster_name  = module.eks.cluster_name
-  principal_arn = local.admin_principal_arn
-  type          = "STANDARD"
-}
 
-resource "aws_eks_access_policy_association" "admin_cluster" {
-  cluster_name  = module.eks.cluster_name
-  principal_arn = local.admin_principal_arn
-
-  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-
-  access_scope { type = "cluster" }
-
-  depends_on = [aws_eks_access_entry.admin]
-}
