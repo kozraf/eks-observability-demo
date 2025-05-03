@@ -74,6 +74,14 @@ module "eks" {
     }
   }
 
+  access_entries = {
+    cloud_admin = {
+      principal_arn = var.admin_principal_arn
+      policy        = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+      type          = "STANDARD"
+    }
+  }
+
   tags = { Environment = "demo" }
 }
 
@@ -86,22 +94,3 @@ provider "kubernetes" {
   cluster_ca_certificate  = base64decode(module.eks.cluster_certificate_authority_data)
   token                   = data.aws_eks_cluster_auth.this.token
 }
-
-################ aws‑auth ConfigMap ################
-
-#module "aws_auth" {
-#  source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
-#  version = "20.36.0"
-
-#  providers = { kubernetes = kubernetes.eks }
-
-#  manage_aws_auth_configmap = true
-
-#  aws_auth_roles = [
-#    {
-#      rolearn  = aws_iam_role.eks_admin.arn
-#      username = "eks-admin"
-#      groups   = ["system:masters"]
-#    }
-#  ]
-#}
