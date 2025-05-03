@@ -57,6 +57,9 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
+  enable_nat_gateway  = true
+  single_nat_gateway  = true
+
   tags = local.tags
 }
 
@@ -91,8 +94,15 @@ module "eks" {
   access_entries = {
     cloud_admin = {
       principal_arn = local.admin_principal_arn
-      policy        = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
       type          = "STANDARD"
+      policy_associations = [
+        {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+          # an empty map ⇒ cluster‑wide scope
+          access_scope = {}
+        }
+      ]
     }
   }
 
