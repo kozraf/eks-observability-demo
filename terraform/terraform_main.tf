@@ -1,5 +1,5 @@
 ###############################################################################
-# Terraform requirements & AWS provider
+# Terraform requirements & provider
 ###############################################################################
 terraform {
   required_version = ">= 1.1"
@@ -16,17 +16,23 @@ provider "aws" {
 }
 
 ###############################################################################
-# Data sources & locals
+# Data sources  (only ONE aws_caller_identity!)
 ###############################################################################
 data "aws_caller_identity" "current" {}
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+###############################################################################
+# Locals
+###############################################################################
 locals {
   tags = {
     Project   = "eks‑observability‑demo"
     Terraform = "true"
   }
 
-  # Use the supplied var if set, otherwise default to “user/cloud_user”
   admin_principal_arn = (
     var.admin_principal_arn != ""
       ? var.admin_principal_arn
@@ -34,14 +40,8 @@ locals {
   )
 }
 
-data "aws_caller_identity" "current" {}
-
-data "aws_availability_zones" "available" {
-  state = "available"   # optional, but filters out AZs that are not usable
-}
-
 ###############################################################################
-# Network – quick three‑AZ VPC
+# Network – three‑AZ VPC
 ###############################################################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -61,7 +61,7 @@ module "vpc" {
 }
 
 ###############################################################################
-# EKS cluster + managed node group
+# EKS cluster
 ###############################################################################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -88,9 +88,6 @@ module "eks" {
     }
   }
 
-  ###########################################################################
-  # Access entries – this is all we need for cloud_user console & kubectl
-  ###########################################################################
   access_entries = {
     cloud_admin = {
       principal_arn = local.admin_principal_arn
@@ -102,4 +99,20 @@ module "eks" {
   tags = local.tags
 }
 
+###############################################################################
+# Outputs
+###############################################################################
+output "cluster_name" {
+  value       = module.eks.cluster_name
+  description = "EKS cluster name"
+}
 
+output "cluster_endpoint" {
+  value       = module.eks.cluster_endpoint
+  description = "API server endpoint"
+}
+
+output "cluster_certificate_authority_data" {
+  value       = module.eks.cluster_certificate_authority_data
+  description = "Base‑64‑encoded cert data"
+}
