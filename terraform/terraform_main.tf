@@ -34,6 +34,12 @@ locals {
   )
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_availability_zones" "available" {
+  state = "available"   # optional, but filters out AZs that are not usable
+}
+
 ###############################################################################
 # Network – quick three‑AZ VPC
 ###############################################################################
