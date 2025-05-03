@@ -29,7 +29,7 @@ data "aws_availability_zones" "available" {
 ###############################################################################
 locals {
   tags = {
-    Project   = "eks‑observability‑demo"
+    Project   = "eks-observability-demo"
     Terraform = "true"
   }
 
