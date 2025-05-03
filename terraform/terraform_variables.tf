@@ -9,7 +9,8 @@ variable "cluster_name" {
 }
 
 variable "admin_principal_arn" {
-  description = "IAM ARN that should get cluster‑admin access in the EKS Console"
+  description = "IAM ARN that should have admin access in the EKS Console.
+                 Leave blank to default to user/cloud_user in the current account."
   type        = string
-  default     = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/cloud_user"
+  default     = ""          # <‑‑ static; no interpolation allowed
 }

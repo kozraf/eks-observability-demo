@@ -1,96 +1,119 @@
+###############################################################################
+# Terraform requirements & AWS provider
+###############################################################################
 terraform {
-  required_version = ">= 1.4"
+  required_version = ">= 1.1"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.79"
+      version = "~> 5.0"
     }
   }
 }
 
-provider "aws" { region = var.region }
+provider "aws" {
+  region = var.region
+}
 
-################ VPC ################
+###############################################################################
+# Common data & tags
+###############################################################################
+data "aws_caller_identity" "current" {}
+
+data "aws_availability_zones" "available" {}
+
+locals {
+  tags = {
+    Project   = "eks‑observability‑demo"
+    Terraform = "true"
+  }
+
+  # Principal that should get full admin access in the EKS console / kubectl
+  admin_principal_arn = (
+    var.admin_principal_arn != ""
+      ? var.admin_principal_arn
+      : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/cloud_user"
+  )
+}
+
+###############################################################################
+# Network – simple three‑AZ VPC
+###############################################################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "5.21.0"
 
-  name            = "eks-vpc"
-  cidr            = "10.0.0.0/16"
-  azs             = ["${var.region}a", "${var.region}b"]
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+  name = "${var.cluster_name}-vpc"
+  cidr = "10.0.0.0/16"
 
-  enable_nat_gateway = true
-  single_nat_gateway = true
+  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
+  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  private_subnets = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
 
-  tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = "1"
-  }
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = local.tags
 }
 
-############### IAM admin role ###############
-resource "aws_iam_role" "eks_admin" {
-  name = "eks-admin-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect    = "Allow",
-      Principal = { Service = "ec2.amazonaws.com" },
-      Action    = "sts:AssumeRole"
-    }]
-  })
-}
-resource "aws_iam_role_policy_attachment" "eks_admin_attach" {
-  role       = aws_iam_role.eks_admin.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-#################### EKS ####################
+###############################################################################
+# EKS – managed node group + access entries
+###############################################################################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.36.0"
 
   cluster_name    = var.cluster_name
-  cluster_version = "1.30"
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.private_subnets
+  cluster_version = var.cluster_version
 
-    enable_cluster_creator_admin_permissions = true
+  # Networking
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets
+  control_plane_subnet_ids = module.vpc.private_subnets
 
-  ### >>> allow CodeBuild to reach the API ###
-  cluster_endpoint_public_access = true
-  ###########################################
+  # Default node‑group settings
+  eks_managed_node_group_defaults = {
+    ami_type       = "AL2_x86_64"
+    disk_size      = 20
+    instance_types = ["t3.medium"]
+  }
 
-  enable_irsa = true
-
+  # One managed node‑group
   eks_managed_node_groups = {
     default = {
-      instance_types = ["t3.small"]
-      desired_size   = 2
-      min_size       = 1
-      max_size       = 3
+      min_size     = 2
+      max_size     = 3
+      desired_size = 2
     }
   }
 
+  # Access entries
+  # ‑ The CodeBuild role is added automatically by the module as “cluster_creator”.
+  # ‑ We add cloud_user (or a supplied principal) as an additional admin.
   access_entries = {
     cloud_admin = {
-      principal_arn = var.admin_principal_arn
+      principal_arn = local.admin_principal_arn
       policy        = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
       type          = "STANDARD"
     }
   }
 
-  tags = { Environment = "demo" }
+  tags = local.tags
 }
 
-############## Providers wired to the new cluster ##############
-data "aws_eks_cluster_auth" "this" { name = module.eks.cluster_name }
+resource "aws_eks_access_entry" "admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = local.admin_principal_arn
+  type          = "STANDARD"
+}
 
-provider "kubernetes" {
-  alias                   = "eks"
-  host                    = module.eks.cluster_endpoint
-  cluster_ca_certificate  = base64decode(module.eks.cluster_certificate_authority_data)
-  token                   = data.aws_eks_cluster_auth.this.token
+resource "aws_eks_access_policy_association" "admin_cluster" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = local.admin_principal_arn
+
+  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope { type = "cluster" }
+
+  depends_on = [aws_eks_access_entry.admin]
 }
