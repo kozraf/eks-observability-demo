@@ -100,7 +100,9 @@ module "eks" {
           policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
           # an empty map ⇒ cluster‑wide scope
-          access_scope = {}
+          access_scope = {          # required keys
+           type = "cluster"        # cluster‑wide
+          }
         }
       ]
     }
