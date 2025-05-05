@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+export KUBECONFIG=/root/.kube/config
+
 # Add Helm repos
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -13,9 +15,9 @@ helm repo update
 #  --namespace monitoring --create-namespace
 
 # Deploy Kubecost
-helm upgrade --install kubecost kubecost/cost-analyzer \
-  --namespace kubecost --create-namespace \
-  --set kubecostToken="demo"
+helm --debug --kubeconfig "$KUBECONFIG" upgrade --install kubecost kubecost/cost-analyzer \
+     --namespace kubecost --create-namespace \
+     --set kubecostToken="demo"
 
 # Deploy sample pod (podinfo)
 #helm upgrade --install podinfo podinfo/podinfo \
