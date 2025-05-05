@@ -19,7 +19,7 @@ helm repo update
 #  --namespace monitoring --create-namespace
 
 # Deploy Kubecost
-helm --debug --kubeconfig "$KUBECONFIG" upgrade --install kubecost kubecost/cost-analyzer \
+helm --kubeconfig "$KUBECONFIG" upgrade --install kubecost kubecost/cost-analyzer \
      --namespace kubecost --create-namespace \
      --set kubecostToken="demo"
 
