@@ -166,6 +166,10 @@ If you see *“You must be logged in to the server (Unauthorized)”* ensure you
 
 ## Troubleshooting
 
+To use kubectl in AWS Cloudshell
+* aws eks update-kubeconfig --name my-eks-cluster  --region us-east-1
+Added new context arn:aws:eks:us-east-1:975050335973:cluster/my-eks-cluster to /home/cloudshell-user/.kube/config
+
 | Symptom                                                  | Fix                                                                                                                                                              |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Unauthorized** error in CodeBuild on `aws‑auth` update | Make sure the CodeBuild role ARN is passed to `cluster_security_group_additional_rules` or `enable_cluster_creator_admin_permissions=true` (already set). Retry. |
