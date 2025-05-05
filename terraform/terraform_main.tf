@@ -77,18 +77,10 @@ module "eks" {
   subnet_ids               = module.vpc.private_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
-  cluster_access_entries = {
-    codebuild = {
-      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.codebuild_role_name}"
-      type          = "STANDARD"
-      access_level  = "readwrite"
-    }
-    open-public = {
-      principal_arn = "*"
-      type          = "EC2_LINUX"
-      source_cidr   = "0.0.0.0/0"
-    }
-  }
+  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access  = true
+
+  cluster_endpoint_public_access_cidrs = [" 0.0.0.0/0 "]
 
 
   eks_managed_node_group_defaults = {
