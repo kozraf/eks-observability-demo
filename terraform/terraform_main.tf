@@ -80,14 +80,6 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  map_roles = [
-    {
-      rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/codebuild-eks-observability-role"
-      username = "codebuild"
-      groups   = ["system:masters"]
-    }
-  ]
-
 
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
@@ -103,18 +95,25 @@ module "eks" {
     }
   }
 
-  access_entries = {
+access_entries = {
     cloud_admin = {
-      principal_arn = local.admin_principal_arn
-      type          = "STANDARD"
+      principal_arn      = local.admin_principal_arn
+      type               = "STANDARD"
       policy_associations = [
         {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope  = { type = "cluster" }
+        }
+      ]
+    }
 
-          # an empty map ⇒ cluster‑wide scope
-          access_scope = {          # required keys
-           type = "cluster"        # cluster‑wide
-          }
+    codebuild = {
+      principal_arn      = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/codebuild-eks-observability-role"
+      type               = "STANDARD"
+      policy_associations = [
+        {
+          policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope  = { type = "cluster" }
         }
       ]
     }
