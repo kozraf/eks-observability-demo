@@ -20,10 +20,6 @@ phases:
       - ./aws/install --update
       - aws --version
 
-      - echo "Installing aws-iam-authenticator (fallback)..."
-      - curl -Lo aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/latest/download/aws-iam-authenticator_linux_amd64
-      - chmod +x aws-iam-authenticator && mv aws-iam-authenticator /usr/local/bin/aws-iam-authenticator
-
 
   pre_build:
     commands:
@@ -38,6 +34,10 @@ phases:
 
   build:
     commands:
+      - aws eks --region "$AWS_REGION" update-kubeconfig --name "$CLUSTER_NAME" #debug
+      - echo ">>> kubeconfig user exec block:" #debug
+      - kubectl config view --minify -o jsonpath='{.users[0].user.exec}' #debug
+
       - echo "Applying Terraform (EKS + monitoring)..."
       - terraform -chdir=terraform apply -auto-approve
 
