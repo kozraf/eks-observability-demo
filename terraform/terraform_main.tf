@@ -80,7 +80,13 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  
+  map_roles = [
+    {
+      rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/codebuild-eks-observability-role"
+      username = "codebuild"
+      groups   = ["system:masters"]
+    }
+  ]
 
 
   eks_managed_node_group_defaults = {
