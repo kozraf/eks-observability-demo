@@ -3,8 +3,8 @@ set -e
 
 export KUBECONFIG=/root/.kube/config
 
-kubectl config view --minify # debug
-kubectl get ns #debug
+# kubectl config view --minify # debug
+# kubectl get ns #debug
 
 # Add Helm repos
 
