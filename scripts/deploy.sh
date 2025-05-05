@@ -27,8 +27,7 @@ helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver 
 helm upgrade --install kubecost kubecost/cost-analyzer \
   --namespace kubecost --create-namespace \
   --set kubecostToken="demo" \
-  --wait --timeout 10m \
-  --debug --dry-run
+  --wait --timeout 5m
 
 
 helm --kubeconfig "$KUBECONFIG" status kubecost --namespace kubecost
