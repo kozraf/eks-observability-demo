@@ -26,11 +26,8 @@ helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver 
 # Deploy Kubecost and wait for pods to be ready
 helm upgrade --install kubecost kubecost/cost-analyzer \
   --namespace kubecost --create-namespace \
-  --set kubecostToken="demo" \
-  --wait --timeout 5m
+  --set kubecostToken="demo" 
 
-
-helm --kubeconfig "$KUBECONFIG" status kubecost --namespace kubecost
 
 # (Optional) Deploy sample pod
 # helm upgrade --install podinfo podinfo/podinfo \
