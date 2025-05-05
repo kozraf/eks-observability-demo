@@ -80,7 +80,7 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  cluster_public_access_cidrs     = ["0.0.0.0/0"]
+  
 
 
   eks_managed_node_group_defaults = {
