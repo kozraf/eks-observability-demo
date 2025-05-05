@@ -40,9 +40,6 @@ phases:
       - echo "Updating kubeconfig"
       - CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
       - aws eks --region "$AWS_REGION" update-kubeconfig --name "$CLUSTER_NAME"
-
-      - aws eks --region "$AWS_REGION" update-kubeconfig --name "$CLUSTER_NAME" #debug
-      - echo ">>> kubeconfig user exec block:" #debug
       - kubectl config view --minify -o jsonpath='{.users[0].user.exec}' #debug
 
       - echo "Waiting 60 seconds for API..."
